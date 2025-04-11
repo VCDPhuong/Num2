@@ -239,8 +239,8 @@ subroutine write_distant()
   real :: dx, dy, dz, rr, dr
   real, allocatable :: g(:)
   real :: volume, density, normalization
-  integer, parameter :: nbins = 100
-  real, parameter :: rmax = rc
+  integer, parameter :: nbins = 1000
+  real, parameter :: rmax = 4.0
 
   ! Allocate and initialize the radial distribution function array
   allocate(g(nbins))
@@ -378,9 +378,9 @@ program liquid_argon
                 sqrt(pos(is,1,2)**2. + pos(is,2,2)**2. + pos(is,3,2)**2.)
     end do
  close(1)
- !call write_distant()
+ call write_distant()
  print*, "Done write distant"
- do it = 0, nt
+ do it = 0 , nt
   if (mod(it,100) == 0) then
    print '(A,F10.3,x,A)', "time: ", tmin + it*dt*sigma*(m/ep)**(1/2.)*1e12, "ps"
   end if
