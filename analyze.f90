@@ -1,68 +1,55 @@
-program extract_lammpstrj
+
+program main
+ implicit none
+    integer :: num_atoms
+    real(8), allocatable :: positions(:,:), velocities(:,:), timestep(:)
+    character(len=256) :: filename, output_filename
+    integer :: i, j
+    allocate(positions(3, num_atoms))
+    allocate(velocities(3, num_atoms))
+    ! Open the file
+    open(10, file='Data/Output.lammpstrj', action='read', iostat=i)
+    if (i /= 0) then
+        print*, "Error: Unable to open file 'Data/Output.lammpstrj'"
+        stop
+    end if
+    read(10, '(A)', iostat=i) filename
+    read
+    print*, "File name: ", filename
+    !call load_velocity_position(num_atoms, positions, velocities)
+    close(10)
+    print*, positions(:,1), velocities(:,1)
+    contains
+subroutine load_velocity_position(num_atoms, positions, velocities)
     implicit none
+    integer, intent(out) :: num_atoms
+    real(8), allocatable, intent(out) :: positions(:,:), velocities(:,:)
+    integer :: i
     character(len=256) :: line
-    integer :: i, num_atoms, atom_id, timestep
-    real :: x, y, z, vx, vy, vz
-    logical :: is_position, is_velocity
-    character(len=256) :: filename
-    character(len=256) :: output_file
-    integer :: input_unit, output_unit
+    real(8) :: x, y, z, vx, vy, vz
+    integer :: id
 
-    ! Input and output file names
-    filename = "trajectory.lammpstrj"
-    output_file = "extracted_data.txt"
 
-    ! Open the input and output files
-    open(newunit=input_unit, file=filename, status='old', action='read')
-    open(newunit=output_unit, file=output_file, status='replace', action='write')
-
-    is_position = .false.
-    is_velocity = .false.
-    timestep = -1
-
+    ! Read the file line by line
     do
-        read(input_unit, '(A)', iostat=i) line
-        if (i /= 0) exit  ! Exit loop at end of file
+        read(10, '(A)', iostat=i) line
+        if (i /= 0) exit
 
-        ! Check for timestep
-        if (index(line, "ITEM: TIMESTEP") > 0) then
-            read(input_unit, '(A)', iostat=i) line
-            read(line, *) timestep
-            write(output_unit, '(A, I8)') "Timestep: ", timestep
-            cycle
-        end if
-
-        ! Check for position or velocity section
-        if (index(line, "ITEM: ATOMS") > 0) then
-            if (index(line, "x y z") > 0) then
-                is_position = .true.
-                is_velocity = .false.
-                write(output_unit, '(A)') "Position Data:"
-            else if (index(line, "vx vy vz") > 0) then
-                is_position = .false.
-                is_velocity = .true.
-                write(output_unit, '(A)') "Velocity Data:"
-            else
-                is_position = .false.
-                is_velocity = .false.
-            end if
-            cycle
-        end if
-
-        ! Extract data if in position or velocity section
-        if (is_position .or. is_velocity) then
-            read(line, *) atom_id, x, y, z, vx, vy, vz
-            if (is_position) then
-                write(output_unit, '(I8, 3F12.6)') atom_id, x, y, z
-            else if (is_velocity) then
-                write(output_unit, '(I8, 3F12.6)') atom_id, vx, vy, vz
-            end if
+        ! Check for specific ITEM lines
+        if (trim(line) == 'ITEM: NUMBER OF ATOMS') then
+            read(10, *) num_atoms
+            print *, num_atoms
+            allocate(positions(3, num_atoms))
+            allocate(velocities(3, num_atoms))
+        else if (trim(line) == 'ITEM: ATOMS id x y z vx vy vz') then
+            do i = 1, num_atoms
+                read(10, *) id, x, y, z, vx, vy, vz
+                positions(:, id) = (/ x, y, z /)
+                velocities(:, id) = (/ vx, vy, vz /)
+            end do
         end if
     end do
 
-    ! Close files
-    close(input_unit)
-    close(output_unit)
-
-    print *, "Data extraction complete. Output written to ", output_file
-end program extract_lammpstrj
+    ! Close the file
+end subroutine load_velocity_position
+end program
