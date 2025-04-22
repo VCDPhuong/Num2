@@ -8,7 +8,7 @@ module liquid
   real, parameter :: ep = 120.*kb, rc = 2.25, L = 10.229, halfL = 10.229/2.
   !time parameters
   integer :: nt, ntrelax
-  real, parameter :: tmin = 0.0, tmax = 100.0, trelax = 10.0 !in ps
+  real, parameter :: tmin = 0.0, tmax = 10.0, trelax = 10.0 !in ps
   real ::  dt = 0.01  !ps
 contains
  subroutine Initial()
@@ -130,8 +130,8 @@ if (dr(3) < -halfL)  dr(3) = dr(3) + L
     else
       open(unit = 2, file = "Data/Output.lammpstrj", action = "write", position = "append")
     end if
-    write(2,*) "ITEM: TIME"
-    write(2,*) tmin + ns*dt*1e12*(m/ep)**0.5*sigma
+    write(2,*) "ITEM: TIMESTEP"
+    write(2,*) ns
     write(2,*) "ITEM: NUMBER OF ATOMS"
     write(2,*) n
     write(2,*) "ITEM: BOX BOUNDS pp pp pp"
@@ -190,7 +190,26 @@ if (dr(3) < -halfL)  dr(3) = dr(3) + L
     write(2,*) ns*dt*1e12*(m/ep)**0.5*sigma, Ekin*1e12, Epot*1e12, E*1e12, Tp
     close(2)
   end subroutine
-
+  
+  subroutine writeinitial()
+    implicit none
+    integer :: i
+    open(unit = 2, file = "Data/Initial.lammpstrj", status = "replace", action = "write")
+    write(2,*) "ITEM: TIMESTEP"
+    write(2,*) 0
+    write(2,*) "ITEM: NUMBER OF ATOMS"
+    write(2,*) n
+    write(2,*) "ITEM: BOX BOUNDS pp pp pp"
+    write(2,*) 0.0, L
+    write(2,*) 0.0, L
+    write(2,*) 0.0, L
+    write(2,*) "ITEM: ATOMS id x y z vx vy vz"
+    do i = 1, n
+      write(2,*) i, dens(i,1,1), dens(i,2,1), dens(i,3,1), &
+                  dens(i,1,2), dens(i,2,2), dens(i,3,2)
+    end do
+    close(2)
+  end subroutine
 
 end module
 program main
@@ -199,6 +218,7 @@ program main
  integer :: it
  real :: Tp, tcurrent
  call initial()
+ call writeinitial()
  do it = 0, ntrelax
     if (mod(it, 100) == 0) then
       print*, "Current time: ", it*dt*1e12*(m/ep)**0.5*sigma

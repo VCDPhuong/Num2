@@ -1,6 +1,13 @@
 \documentclass[a4paper]{article}
 %\setbeameroption{show notes on second screen=right} % Both
 % Theme choice:
+\usepackage{geometry}
+\geometry{
+	a4paper,
+	total={170mm,257mm},
+	left=20mm,
+	top=20mm,
+}
 \usepackage{tikz-feynman}
 \usepackage{animate}
 \usepackage{amsmath}
@@ -97,7 +104,14 @@ dens(:,:,2) = dens(:,:,2) / (ep/m)**0.5 ! Convert to dimensionless units
 end subroutine
 \end{lstlisting}}
 \rule{\textwidth}{1pt}\\\null
-\quad First, I generate the position of the particles in a lattice to avoid the very strong at the near interaction of Leornard-Johnes potential and also generate the velocity in each direction arcording the Boltzmann distribution
+\quad First, I generate the position of the particles in a lattice to avoid the very strong at the near interaction of Leornard-Johnes potential and also generate the velocity in each direction arcording the Boltzmann distribution using random-number generator.
+\begin{figure}[h]
+\begin{center}
+	\includegraphics[width = 0.5\linewidth]{Images/Lattice.png}
+\caption{Initial position of atoms and their colored according to their initial velocity}
+\end{center}
+Then, using the do loop, delete the net-momentum velocity. After all, scale every thing to our desire temperature using the relation: \(v \sim \sqrt{T}\) and converge to the dimensionless unit (which position is already in). According to the paper, the unit of length is \(\sigma\), the unit of velocity is \(\sqrt{\epsilon/m}\) and the unit of time is \(10^{-12}*(\epsilon/m)^{1/2}(1/\sigma)\) (the line with \(dt = dt...\)) to match which the rest.
+\end{figure}
 \section{Method}
 \section{Results and Discussion}
 \end{document}
