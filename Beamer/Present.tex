@@ -15,13 +15,10 @@
 \usepackage{multicol}
 \usepackage{physics}
 \usepackage{graphicx}
+\usepackage{subcaption}
 \usepackage{amsfonts}
-\usepackage{caption}
 \usepackage{wrapfig}
-\usepackage{pgfplots}
-\usepackage{subfigure}
 \usepackage{listings}
-\pgfplotsset{compat=1.15}
 \captionsetup{singlelinecheck=false}
 \usepackage[backend=bibtex,bibencoding=utf8,doi=false,isbn=false,url=false,eprint=false,indexing=false,style=authoryear]{biblatex}
 \addbibresource{library}
@@ -30,18 +27,17 @@
 	\clearlist{publisher}%
 	\clearfield{pagetotal}%
 }
-\usepackage{MnSymbol,wasysym}
-\usepackage[toc,page]{appendix}
-\usetikzlibrary{snakes}
-\usetikzlibrary{shapes.geometric, calc}
 \author{Vo Chau Duc Phuong}
 % Title page details: 
 \title{Simulation of Liquid Argon}
 \begin{document}
 	\maketitle
+\begin{abstract}
+Using the FORTRAN code, I simulate the dynamics system of 864 Argon atom using the Leonard-Jones potential with and without the implement of the poor-mans thermal stat. Using the Python to analyze the file later to obtain the final results. The results showing the obeying of the Boltzmann distribution and exist of shell in the relative distance between the atoms
+\end{abstract}
 \tableofcontents
 \section{Initial}
-\quad Using the FORTRAN, I simulate the liquid Argon in the Lennard-Jones potential between the particles. The input value into the code will be these parameters and variables:\\
+\quad Using the FORTRAN, I simulate the liquid Argon in the Leonard-Jones potential between the particles. The input value into the code will be these parameters and variables:\\
 \rule{\textwidth}{1pt}
 {\small
  \begin{lstlisting}
@@ -208,10 +204,12 @@ This althogithm is used more commonly than the basic Verlet, but with the same e
 \item Derive \(a(t+ \Delta t)\) from \(x(t + \Delta t) \)
 \item Calculate \(v(t + \Delta t) = v(t + \frac{1}{2} \Delta t) + \frac{1}{2} a ( t+ \Delta t) \Delta t\)
 \end{itemize}
-\quad After calculate the position, I will using the periodic boundary condition as shown to put the particle to the other side of the box in case that they moved out of it in the last calculation.\\ \null
+\quad After calculate the position, I will using the periodic boundary condition as shown to put the particle to the other side of the box in case that they moved out of it in the last calculation and scale the velocity using poor-mans althogithm if tr parameter have been set to 1:
+\begin{equation}
+Tp = \frac{M}{3N k_B} \sum_i \textbf{v}_i^2;\quad v \to \sqrt{\frac{T_p}{T}} v
+\end{equation}.\\ \null
 \quad In these calculation, to reduce the time-cost, I using the library openmp multiple times to run in parallel the process and also to avoid the overlap of step in the sudo-code above.\\\null
 The whole system will be putted in the relaxation phase before being recorded into the lammpstrj format:
-
 \rule{\textwidth}{1pt}
 \begin{lstlisting}
 ITEM: TIMESTEP
@@ -267,6 +265,222 @@ end program
 \rule{\textwidth}{1pt}
 After the relaxation, all the velocity will be shifted to the desired temperature however using the poor-mans or not before being recorded into the file.
 \section{Results and Discussion}
-Using the parameter from the beginning, the simulation show some interesting properties:
+Using the parameter from the beginning, I got the .lammstrj file formats. Using the python to analyze and plot the results, I found some interesting properties:
 
+\begin{figure}[h]
+\centering
+\captionsetup{justification=centering}
+	\hfill
+	\begin{subfigure}{0.4\linewidth}
+\includegraphics[width=\textwidth]{Images/nopm.pdf}
+		\caption{Without Thermal stat}
+		\label{nopm}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.4\linewidth}
+\includegraphics[width=\textwidth]{Images/pmtr=2.pdf}
+		\caption{With Thermal stat}
+		\label{pm}
+	\end{subfigure}
+\caption{Temperature distribution}
+	\label{fig:Boltz}
+\end{figure}
+\begin{figure}[h]
+	\centering
+	\captionsetup{justification=centering}
+	\hfill
+	\begin{subfigure}{0.4\linewidth}
+		\includegraphics[width=\textwidth]{Images/tempnopm.pdf}
+		\caption{Without Thermal stat}
+		\label{tempnopm}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.4\linewidth}
+		\includegraphics[width=\textwidth]{Images/temppmtr=2.pdf}
+		\caption{With Thermal stat}
+		\label{temppm}
+	\end{subfigure}
+	\caption{Average temperature}
+	\label{fig:Temp}
+\end{figure}
+Firstly, as we expected, the total distribution of the speed have to be satisfied the Boltzmann distribution, which is the connected line. Without the poor-man thermal stat, it's also satisfied the same thing, but at the higher temperature (I fitted it with the temperature around \(T = 113 K\)).\\\null
+Using the python to analyze the distance between the particle:
+\rule{\textwidth}{1pt}
+{\small\begin{lstlisting}
+def compute_pair_correlation(positions, box_length, nbins=100, r_max=None):
+"""
+Compute the pair correlation function g(r) for a system of particles.
+
+Parameters:
+positions (numpy.ndarray): Positions of atoms at a specific time step, shape (natom, 3)
+box_length (float): Length of the simulation box (assuming cubic)
+nbins (int): Number of bins for histogram
+r_max (float): Maximum distance to consider (defaults to half box length)
+
+Returns:
+r (numpy.ndarray): Radial distance values
+g_r (numpy.ndarray): Pair correlation function values
+"""
+natom = positions.shape[0]
+
+# If r_max is not specified, use half of the box length
+if r_max is None:
+r_max = box_length / 2.0
+
+# Create bins for the histogram
+bins = np.linspace(0, r_max, nbins + 1)
+r = 0.5 * (bins[1:] + bins[:-1])  # Centers of bins
+dr = bins[1] - bins[0]  # Bin width
+
+# Initialize histogram for pair distances
+hist = np.zeros(nbins)
+
+# Calculate all pairwise distances considering periodic boundary conditions
+for i in range(natom):
+for j in range(i+1, natom):
+# Calculate distance vector, accounting for periodic boundary conditions
+dx = positions[i, 0] - positions[j, 0]
+dy = positions[i, 1] - positions[j, 1]
+dz = positions[i, 2] - positions[j, 2]
+
+# Apply minimum image convention
+dx = dx - box_length * np.round(dx / box_length)
+dy = dy - box_length * np.round(dy / box_length)
+dz = dz - box_length * np.round(dz / box_length)
+
+# Calculate distance
+r_ij = np.sqrt(dx**2 + dy**2 + dz**2)
+
+# Add to histogram if within range
+if r_ij < r_max:
+bin_index = int(r_ij / dr)
+if bin_index < nbins:
+hist[bin_index] += 2  # Count each pair twice (i->j and j->i)
+
+# Normalize histogram to get g(r)
+# Volume of the shell at distance r with width dr
+shell_volume = 4.0 * np.pi * r**2 * dr
+
+# Number density of the system
+number_density = natom / (box_length**3)
+
+# Expected number of particles in each shell for an ideal gas
+ideal_count = number_density * shell_volume
+
+# Normalize to get g(r)
+g_r = hist / (natom * ideal_count)
+
+return r, g_r
+
+# Calculate g(r) for multiple time steps and average
+def average_pair_correlation(x, box_length, time_steps=10, nbins=100):
+"""
+Calculate the average pair correlation function over multiple time steps.
+
+Parameters:
+x (numpy.ndarray): Positions of atoms for all time steps, shape (natom, 3, nt)
+box_length (float): Length of the simulation box
+time_steps (int): Number of time steps to use for averaging
+nbins (int): Number of bins for histogram
+
+Returns:
+r (numpy.ndarray): Radial distance values
+g_r_avg (numpy.ndarray): Average pair correlation function values
+"""
+natom, _, nt = x.shape
+
+# Use equally spaced time steps for averaging
+step = nt // time_steps
+selected_times = np.arange(0, nt, step)[:time_steps]
+
+# Initialize arrays
+r = None
+g_r_avg = np.zeros(nbins)
+
+# Calculate g(r) for each selected time step
+for t_idx in selected_times:
+positions = x[:, :, t_idx]
+r, g_r = compute_pair_correlation(positions, box_length, nbins)
+g_r_avg += g_r
+
+# Average over all time steps
+g_r_avg /= len(selected_times)
+
+return r, g_r_avg
+
+# Calculate and plot the pair correlation function
+r, g_r = average_pair_correlation(x, L, time_steps=20, nbins=150)
+\end{lstlisting}}
+\rule{\textwidth}{1pt}
+which give me the pair correlation function (as shown in the file):\\
+\begin{figure}[!h]
+\centering
+\captionsetup{justification=centering}
+\hfill
+\begin{subfigure}{0.4\linewidth}
+	\includegraphics[width=\textwidth]{Images/grnopm.pdf}
+	\caption{Without Thermal stat}
+	\label{nopmgr}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.4\linewidth}
+	\includegraphics[width=\textwidth]{Images/grpmtr=2.pdf}
+	\caption{With Thermal stat}
+	\label{pmgr}
+\end{subfigure}
+\caption{Pair-correlation function}
+\label{fig:gr}
+\end{figure}\\\null
+\quad According to the figure, there's not much difference between the case with or without the poor-man thermal stat. The dashed line show the peaks at \(3.7\,\text{\r{A}}, 7.1\,\text{\r{A}}, 10.2\,\text{\r{A}}\).\\
+\quad I also made the observation on the establish of the pair-correlation function by not process the relaxation interval and start the recording from the beginning, which shown to be very fast in converge to the form as shown above, only take about \(0.5 ps\) from the release:
+\begin{figure}[!h]
+	\centering
+	\captionsetup{justification=centering}
+	\hfill
+\includegraphics[width=\textwidth]{Images/grint.pdf}
+\caption{The establish of the pair-correlation function}
+\end{figure}
+\quad Alongside with that, I also calculate the velocity correlation to show the randomly of this simulation after a certain time, which is pretty much the same for both cases:\\
+\begin{figure}[!h]
+	\centering
+	\captionsetup{justification=centering}
+	\hfill
+	\begin{subfigure}{0.4\linewidth}
+		\includegraphics[width=\textwidth]{Images/vacfnopm.pdf}
+		\caption{Without Thermal stat}
+		\label{nopmvf}
+	\end{subfigure}
+	\hfill
+	\begin{subfigure}{0.4\linewidth}
+		\includegraphics[width=\textwidth]{Images/vacfpmtr=2.pdf}
+		\caption{With Thermal stat}
+		\label{pmvf}
+	\end{subfigure}
+	\caption{Velocity Auto Correlation Function}
+	\label{fig:vf}
+\end{figure}
+\rule{\textwidth}{1pt}
+\begin{lstlisting}
+def calculate_velocity_correlation_normalized(v, nt):
+natom = v.shape[0]
+vacf = np.zeros(nt)
+vacf_values = np.zeros((natom, nt))
+
+# Compute the initial velocity correlation (at t=0)
+initial_correlation = 0
+for atom in range(natom):
+initial_correlation += np.sum(v[atom, :, 0] * v[atom, :, 0])
+# Compute the velocity correlation for each time step
+for t in range(nt):
+for atom in range(natom):
+vacf_values[atom, t] = np.sum(v[atom, :, 0] * v[atom, :, t])
+vacf[t] = np.sum(vacf_values[:, t]) /(initial_correlation)
+
+# Calculate the standard deviation
+vacf_std = np.std(vacf_values/initial_correlation, axis=0)
+return vacf, vacf_std
+ntpl = 20
+vacf, vacf_std = calculate_velocity_correlation_normalized(v, ntpl)
+\end{lstlisting}
+\rule{\textwidth}{1pt}
 \end{document}
